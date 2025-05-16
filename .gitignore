@@ -23,6 +23,7 @@ public
 *.njsproj
 *.sln
 *.sw?
+.history
 
 # App
 app/config/database.php

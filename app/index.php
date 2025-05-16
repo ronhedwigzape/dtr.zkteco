@@ -6,3 +6,5 @@ header('Access-Control-Allow-Headers: Content-Type');
 session_start();
 
 require_once 'config/database.php';
+
+
