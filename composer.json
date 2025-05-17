@@ -1,0 +1,6 @@
+{
+    "require": {
+        "coding-libs/zkteco-php": "^0.0.27",
+        "wnasich/php_zklib": "^1.3"
+    }
+}

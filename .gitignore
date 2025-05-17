@@ -27,3 +27,4 @@ public
 
 # App
 app/config/database.php
+vendor

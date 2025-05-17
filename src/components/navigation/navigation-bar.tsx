@@ -5,12 +5,13 @@ import {
     NavigationMenuLink,
     NavigationMenuList,
 } from "@/components/ui/navigation-menu"
-import { Home, LayoutDashboard, Users, FileSpreadsheet } from "lucide-react";
+import { Home, LayoutDashboard, Users, FileSpreadsheet, Clock } from "lucide-react";
 
 const menuItems = [
     { path: "/", label: "Home", icon: <Home className="mr-3 h-5 w-5" /> },
     { path: "/dashboard", label: "Dashboard", icon: <LayoutDashboard className="mr-3 h-5 w-5" /> },
     { path: "/employees", label: "Employees", icon: <Users className="mr-3 h-5 w-5" /> },
+    { path: "/attendance", label: "Attendance", icon: <Clock className="mr-3 h-5 w-5" /> },
     { path: "/create-adjustments", label: "Adjustments", icon: <FileSpreadsheet className="mr-3 h-5 w-5" /> },
 ];
 
