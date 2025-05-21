@@ -11,7 +11,7 @@ node_modules
 dist
 dist-ssr
 *.local
-public
+.history
 
 # Editor directories and files
 .vscode/*
@@ -23,8 +23,8 @@ public
 *.njsproj
 *.sln
 *.sw?
-.history
 
-# App
-app/config/database.php
-vendor
+.env
+.env.*
+.env.local
+.env.development.local
