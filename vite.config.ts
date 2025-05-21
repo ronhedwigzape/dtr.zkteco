@@ -14,11 +14,11 @@ export default defineConfig(({ mode }) => {
         "@": path.resolve(__dirname, "./src"),
       },
     },
-    base: env.VITE_SKIP_BASE_PATH === 'true' ? '/' : '/dtr.zkteco/',
+    base: env.VITE_SKIP_BASE_PATH === 'true' ? '/' : '',
     publicDir: 'assets',
     server: {
       host: 'localhost',
-      port: 5000,
+      port: 2000,
       strictPort: true
     },
     build: {

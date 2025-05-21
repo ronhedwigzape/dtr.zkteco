@@ -11,13 +11,15 @@ export default function App() {
     return (
         <>
             <NavigationBar />
-            <Routes>
-                <Route path='/' element={<Home />} />
-                <Route path='/dashboard' element={<Dashboard />} />
-                <Route path='/employees' element={<Employees />} />
-                <Route path='/attendance' element={<Attendance />} />
-                <Route path='/create-adjustments' element={<Adjustments />} />
-            </Routes>
+            <main className="pt-26">
+                <Routes>
+                    <Route path='/' element={<Home />} />
+                    <Route path='/dashboard' element={<Dashboard />} />
+                    <Route path='/employees' element={<Employees />} />
+                    <Route path='/attendance' element={<Attendance />} />
+                    <Route path='/create-adjustments' element={<Adjustments />} />
+                </Routes>
+            </main>
         </>
     )
 }

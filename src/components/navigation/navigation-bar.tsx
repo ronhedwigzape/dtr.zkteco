@@ -18,28 +18,32 @@ const menuItems = [
 export default function NavigationBar() {
     return (
         <>
-            <div className="fixed top-0 left-0 w-screen bg-indigo-950">
-                <NavigationMenu className="w-screen py-3">
-                    <img className="px-5 h-7" src="./assets/gvs-white-logo.png" alt="GVS White Logo" />
-                </NavigationMenu>
-            </div>
+            <div className="fixed top-0 left-0 w-screen ">
+                <div className="bg-indigo-950 w-full">
+                    <NavigationMenu className="w-screen py-3">
+                        <img className="px-5 h-7" src="./assets/gvs-white-logo.png" alt="GVS White Logo" />
+                    </NavigationMenu>
+                </div>
 
-            <NavigationMenu className="mt-16 mx-4">
-                <NavigationMenuList>
-                    {menuItems.map((item) => (
-                        <NavigationMenuItem key={item.path} className="px-1">
-                            <Link to={item.path}>
-                                <NavigationMenuLink className="font-bold text-gray-700">
-                                    <div className="flex items-center text-center">
-                                        <span>{item.icon}</span>
-                                        <span>{item.label}</span>
-                                    </div>
-                                </NavigationMenuLink>
-                            </Link>
-                        </NavigationMenuItem>
-                    ))}
-                </NavigationMenuList>
-            </NavigationMenu>
+                <div className="bg-white border-b w-screen">
+                    <NavigationMenu className="mx-4 py-2">
+                        <NavigationMenuList>
+                            {menuItems.map((item) => (
+                                <NavigationMenuItem key={item.path} className="px-1">
+                                    <Link to={item.path}>
+                                        <NavigationMenuLink className="font-bold text-gray-700">
+                                            <div className="flex items-center text-center">
+                                                <span>{item.icon}</span>
+                                                <span>{item.label}</span>
+                                            </div>
+                                        </NavigationMenuLink>
+                                    </Link>
+                                </NavigationMenuItem>
+                            ))}
+                        </NavigationMenuList>
+                    </NavigationMenu>
+                </div>
+            </div>
         </>
     );
 } 

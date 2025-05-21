@@ -3,6 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LayoutDashboard, Clock, UserCheck, UserX } from "lucide-react";
 
 export default function Dashboard() {
+    
     return (
         <div className="dashboard container mx-auto p-6">
             <div className="flex items-center gap-2 mb-6">
