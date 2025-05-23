@@ -2,7 +2,6 @@
 import 'dotenv/config';               // load .env into process.env
 import redis from 'redis';
 import { EventEmitter } from 'events';
-import msgpack from 'notepack.io';
 import Zkteco from 'zkteco-js';
 import http from 'http';
 import { Server } from 'socket.io';
