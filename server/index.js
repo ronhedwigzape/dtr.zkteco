@@ -6,15 +6,52 @@ import msgpack from 'notepack.io';
 import Zkteco from 'zkteco-js';
 import http from 'http';
 import { Server } from 'socket.io';
+import mysql from 'mysql2/promise';
 
 // Environment variables (see README)
-const REDIS_URL     = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
-const REDIS_CHANNEL = process.env.REDIS_CHANNEL || 'attendance:updates';
-const DEVICE_IP     = process.env.DEVICE_IP || '10.10.80.8';
-const DEVICE_PORT   = parseInt(process.env.DEVICE_PORT, 10) || 4370;
-const SEND_TIMEOUT  = parseInt(process.env.SEND_TIMEOUT, 10) || 20000;
-const RECV_TIMEOUT  = parseInt(process.env.RECV_TIMEOUT, 10) || 20000;
-const SERVER_PORT   = parseInt(process.env.SERVER_PORT, 10) || 8090;
+const {
+  REDIS_URL     = 'redis://127.0.0.1:6379',
+  REDIS_CHANNEL = 'attendance:updates',
+  DEVICE_IP     = '10.10.80.8',
+  DEVICE_PORT   = '4370',
+  SEND_TIMEOUT  = '20000',
+  RECV_TIMEOUT  = '20000',
+  SERVER_PORT   = '8090',
+
+  DB_HOST       = 'localhost',
+  DB_USER       = 'root',
+  DB_PASS       = '',
+  DB_NAME       = 'attendance',
+} = process.env;
+
+// parse ints
+const DEVICE_PORT_NUM  = parseInt(DEVICE_PORT, 10);
+const SEND_TIMEOUT_MS  = parseInt(SEND_TIMEOUT, 10);
+const RECV_TIMEOUT_MS  = parseInt(RECV_TIMEOUT, 10);
+const SERVER_PORT_NUM  = parseInt(SERVER_PORT, 10);
+
+// MySQL pool for persistence
+const db = await mysql.createPool({
+  host:     DB_HOST,
+  user:     DB_USER,
+  password: DB_PASS,
+  database: DB_NAME,
+  waitForConnections: true,
+  connectionLimit: 10,
+});
+
+// ensure table exists
+await db.execute(`
+  CREATE TABLE IF NOT EXISTS attendance_logs (
+    sn           INT PRIMARY KEY,
+    user_id      VARCHAR(50),
+    name         VARCHAR(255),
+    record_time  DATETIME,
+    type         TINYINT,
+    state        TINYINT,
+    updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  );
+`);
 
 const fallbackBus = new EventEmitter();
 fallbackBus.setMaxListeners(20);
@@ -31,9 +68,35 @@ async function initPubSub() {
   console.log('✅ Connected to Redis Pub/Sub');
 }
 
+// helper: save or update batch of logs
+async function saveLogs(logs) {
+  if (!logs.length) return;
+  const values = logs.map(r => [
+    r.sn,
+    r.user_id,
+    r.name,
+    r.record_time,
+    r.type,
+    r.state,
+  ]);
+  // bulk insert with ON DUPLICATE KEY UPDATE
+  await db.query(
+      `INSERT INTO attendance_logs
+      (sn, user_id, name, record_time, type, state)
+     VALUES ?
+     ON DUPLICATE KEY UPDATE
+       user_id=VALUES(user_id),
+       name=VALUES(name),
+       record_time=VALUES(record_time),
+       type=VALUES(type),
+       state=VALUES(state)`,
+      [values]
+  );
+}
+
 ;(async () => {
   // 1) Connect to the ZKTeco device
-  const device = new Zkteco(DEVICE_IP, DEVICE_PORT, SEND_TIMEOUT, RECV_TIMEOUT);
+  const device = new Zkteco(DEVICE_IP, DEVICE_PORT_NUM, SEND_TIMEOUT_MS, RECV_TIMEOUT_MS);
   await device.createSocket();
 
   // 2) Fetch static device details
@@ -60,7 +123,6 @@ async function initPubSub() {
       : Array.isArray(rawUsers.data)
           ? rawUsers.data
           : Object.values(rawUsers);
-
   const usersDevice = usersArray.map(u => ({
     user_id: u.userId,
     name:    u.name,
@@ -74,7 +136,7 @@ async function initPubSub() {
   const startOfYear = new Date(new Date().getFullYear(), 0, 1).getTime();
   const now         = Date.now();
 
-  // 6) Fetch → enrich → filter → publish
+  // 6) Fetch → enrich → filter → publish → persist
   let lastPayload = null;
   async function publishAttendances() {
     const raw = await device.getAttendances();
@@ -91,23 +153,30 @@ async function initPubSub() {
         })
         .map(r => ({
           sn:          r.sn,
-          employeeId:  r.user_id,
-          name:        (usersDevice.find(u => u.user_id === r.user_id)?.name) || 'Unknown',
+          user_id:     r.user_id,
+          name:        usersDevice.find(u => u.user_id === r.user_id)?.name || 'Unknown',
           record_time: r.record_time,
           type:        r.type,
           state:       r.state,
         }));
 
+    // pack & publish
     const payloadObj = {
       timestamp:    Date.now(),
       deviceDetails,
-      users:         usersDevice,
-      logs:          enriched,
+      users:        usersDevice,
+      logs:         enriched,
     };
-
     const packed = msgpack.encode(payloadObj);
     lastPayload = packed;
     await pub.publish(REDIS_CHANNEL, packed);
+
+    // persist into MariaDB
+    try {
+      await saveLogs(enriched);
+    } catch (err) {
+      console.error('DB save error:', err);
+    }
   }
 
   // 7) Fire immediately, then every 60s
@@ -117,7 +186,7 @@ async function initPubSub() {
   // 8) Socket.IO server
   const httpServer = http.createServer();
   const io = new Server(httpServer, {
-    cors:       { origin: process.env.CLIENT_ORIGIN || 'http://localhost:2000', methods: ['GET','POST'] },
+    cors:       { origin: process.env.CLIENT_ORIGIN || '*' },
     transports: ['websocket'],
   });
 
@@ -134,7 +203,7 @@ async function initPubSub() {
     });
   });
 
-  httpServer.listen(SERVER_PORT, () =>
-      console.log(`⚡️ Socket.IO listening on port ${SERVER_PORT}`)
+  httpServer.listen(SERVER_PORT_NUM, () =>
+      console.log(`⚡️ Socket.IO listening on port ${SERVER_PORT_NUM}`)
   );
 })();
