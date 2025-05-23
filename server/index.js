@@ -1,4 +1,5 @@
 // server/index.js
+import 'dotenv/config';               // load .env into process.env
 import redis from 'redis';
 import { EventEmitter } from 'events';
 import msgpack from 'notepack.io';
@@ -6,59 +7,36 @@ import Zkteco from 'zkteco-js';
 import http from 'http';
 import { Server } from 'socket.io';
 
+// Environment variables (see README)
 const REDIS_URL     = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
-const REDIS_CHANNEL = 'attendance:updates';
-const DEVICE_IP     = '10.10.80.8';
-const DEVICE_PORT   = 4370;
-const SEND_TIMEOUT  = 20000;
-const RECV_TIMEOUT  = 20000;
-
-// 1) Define your “active” employees here:
-const ACTIVE_EMPLOYEE_IDS = [
-    '1019', 
-    '1022', 
-    '1025', 
-    '135' , 
-    '149', 
-    '155', 
-    '205', 
-    '3', 
-    '36', 
-    '40', 
-    '424',
-    '427',
-    '463',
-    '469',
-    '474',
-    '478'
-];
+const REDIS_CHANNEL = process.env.REDIS_CHANNEL || 'attendance:updates';
+const DEVICE_IP     = process.env.DEVICE_IP || '10.10.80.8';
+const DEVICE_PORT   = parseInt(process.env.DEVICE_PORT, 10) || 4370;
+const SEND_TIMEOUT  = parseInt(process.env.SEND_TIMEOUT, 10) || 20000;
+const RECV_TIMEOUT  = parseInt(process.env.RECV_TIMEOUT, 10) || 20000;
+const SERVER_PORT   = parseInt(process.env.SERVER_PORT, 10) || 8090;
 
 const fallbackBus = new EventEmitter();
 fallbackBus.setMaxListeners(20);
 
 let pub, sub;
 async function initPubSub() {
-  try {
-    const client = redis.createClient({ url: REDIS_URL });
-    await client.connect();
-    pub = client;
-    sub = client.duplicate();
-    await sub.connect();
-    sub.setMaxListeners?.(20);
-    console.log('✅ Connected to Redis Pub/Sub');
-  } catch {
-    console.warn('⚠️ Redis unavailable, using in-memory Pub/Sub');
-    pub = { publish: async (ch, msg) => fallbackBus.emit(ch, msg) };
-    sub = fallbackBus;
-  }
+  const client = redis.createClient({ url: REDIS_URL });
+  client.on('error', err => console.error('Redis error', err));
+  await client.connect();
+  pub = client;
+  sub = client.duplicate();
+  await sub.connect();
+  sub.setMaxListeners(20);
+  console.log('✅ Connected to Redis Pub/Sub');
 }
 
 ;(async () => {
-  // 2) Connect to the ZKTeco device
+  // 1) Connect to the ZKTeco device
   const device = new Zkteco(DEVICE_IP, DEVICE_PORT, SEND_TIMEOUT, RECV_TIMEOUT);
   await device.createSocket();
 
-  // 3) Fetch static device details
+  // 2) Fetch static device details
   const deviceDetails = {
     info:           await device.getInfo(),
     attendanceSize: await device.getAttendanceSize(),
@@ -75,59 +53,56 @@ async function initPubSub() {
     macAddress:     await device.getMacAddress(),
   };
 
-  // 4) Fetch & normalize enrolled users
+  // 3) Fetch & normalize enrolled users
   const rawUsers = await device.getUsers();
   const usersArray = Array.isArray(rawUsers)
-    ? rawUsers
-    : Array.isArray(rawUsers.data)
-      ? rawUsers.data
-      : Object.values(rawUsers);
+      ? rawUsers
+      : Array.isArray(rawUsers.data)
+          ? rawUsers.data
+          : Object.values(rawUsers);
 
   const usersDevice = usersArray.map(u => ({
-    user_id: u.userId,  // normalize to `user_id`
+    user_id: u.userId,
     name:    u.name,
     role:    u.role,
   }));
 
-  // 5) Init Pub/Sub
+  // 4) Init Pub/Sub
   await initPubSub();
 
-  // 6) Date range: Jan 1 this year → now
+  // 5) Date range: Jan 1 this year → now
   const startOfYear = new Date(new Date().getFullYear(), 0, 1).getTime();
   const now         = Date.now();
 
-  // 7) Fetch → enrich → filter by ACTIVE_EMPLOYEE_IDS → publish
+  // 6) Fetch → enrich → filter → publish
   let lastPayload = null;
   async function publishAttendances() {
     const raw = await device.getAttendances();
     const arr = Array.isArray(raw)
-      ? raw
-      : Array.isArray(raw.data)
-        ? raw.data
-        : Object.values(raw);
+        ? raw
+        : Array.isArray(raw.data)
+            ? raw.data
+            : Object.values(raw);
 
     const enriched = arr
-      .filter(r => {
-        const ts = new Date(r.record_time).getTime();
-        return ts >= startOfYear && ts <= now;
-      })
-      .map(r => ({
-        sn:          r.sn,
-        employeeId:  r.user_id,
-        name:        (usersDevice.find(u => u.user_id === r.user_id)?.name) || 'Unknown',
-        record_time: r.record_time,
-        type:        r.type,
-        state:       r.state,
-      }))
-      // only keep active employees
-      .filter(entry => ACTIVE_EMPLOYEE_IDS.includes(entry.employeeId));
+        .filter(r => {
+          const ts = new Date(r.record_time).getTime();
+          return ts >= startOfYear && ts <= now;
+        })
+        .map(r => ({
+          sn:          r.sn,
+          employeeId:  r.user_id,
+          name:        (usersDevice.find(u => u.user_id === r.user_id)?.name) || 'Unknown',
+          record_time: r.record_time,
+          type:        r.type,
+          state:       r.state,
+        }));
 
     const payloadObj = {
-      timestamp:         Date.now(),
-      deviceDetails,           // metadata
-      users:              usersDevice,
-      activeEmployeeIds:  ACTIVE_EMPLOYEE_IDS,
-      logs:               enriched,
+      timestamp:    Date.now(),
+      deviceDetails,
+      users:         usersDevice,
+      logs:          enriched,
     };
 
     const packed = msgpack.encode(payloadObj);
@@ -135,14 +110,14 @@ async function initPubSub() {
     await pub.publish(REDIS_CHANNEL, packed);
   }
 
-  // 8) Fire immediately, then every 60s
+  // 7) Fire immediately, then every 60s
   await publishAttendances();
   setInterval(publishAttendances, 60_000);
 
-  // 9) Socket.IO server
+  // 8) Socket.IO server
   const httpServer = http.createServer();
   const io = new Server(httpServer, {
-    cors:       { origin: 'http://localhost:2000', methods: ['GET','POST'] },
+    cors:       { origin: process.env.CLIENT_ORIGIN || 'http://localhost:2000', methods: ['GET','POST'] },
     transports: ['websocket'],
   });
 
@@ -159,7 +134,7 @@ async function initPubSub() {
     });
   });
 
-  httpServer.listen(8090, () =>
-    console.log('⚡️ Socket.IO listening on port 8090')
+  httpServer.listen(SERVER_PORT, () =>
+      console.log(`⚡️ Socket.IO listening on port ${SERVER_PORT}`)
   );
 })();

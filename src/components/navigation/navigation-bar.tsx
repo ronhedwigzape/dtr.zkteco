@@ -21,7 +21,7 @@ export default function NavigationBar() {
             <div className="fixed top-0 left-0 w-screen ">
                 <div className="bg-indigo-950 w-full">
                     <NavigationMenu className="w-screen py-3">
-                        <img className="px-5 h-7" src="./assets/gvs-white-logo.png" alt="GVS White Logo" />
+                        <img className="px-5 h-7" src="./gvs-white-logo.png" alt="GVS White Logo" />
                     </NavigationMenu>
                 </div>
 

@@ -55,7 +55,7 @@ export function useAttendanceSocket(): void {
     if (socket) return;
 
     // initialize
-    socket = io('http://localhost:8090', {
+    socket = io(`http://localhost:${import.meta.env.SERVER_PORT ?? 8090}`, {
       path:       '/socket.io',
       transports: ['websocket'],
       reconnectionDelayMax: 5000,

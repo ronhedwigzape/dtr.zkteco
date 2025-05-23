@@ -40,7 +40,6 @@ import { cn } from "@/lib/utils";
 import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import { format } from "date-fns";
 
-import { useAttendanceSocket } from "@/hooks/useAttendanceSocket";
 import { useAttendanceStore } from "@/store/attendanceStore";
 import type { AttendanceLog } from "@/store/attendanceStore";
 
@@ -60,7 +59,6 @@ export default function Attendance() {
   });
 
   // — Kick off socket + store
-  useAttendanceSocket();
   const allLogs = useAttendanceStore((s) => s.logs);
 
   // — UI state: filtered records + loading flag
@@ -253,7 +251,7 @@ export default function Attendance() {
                 <TableHead>Time In</TableHead>
                 <TableHead>Time Out</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
+                {/* <TableHead>Actions</TableHead> */}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -273,6 +271,8 @@ export default function Attendance() {
                         className={cn(
                           "px-2 py-1 rounded-full text-xs",
                           r.status === "On Time"
+                            ? "bg-blue-100 text-blue-800"
+                            : r.status === "Early"
                             ? "bg-green-100 text-green-800"
                             : r.status === "Late"
                             ? "bg-yellow-100 text-yellow-800"
@@ -282,7 +282,7 @@ export default function Attendance() {
                         {r.status}
                       </span>
                     </TableCell>
-                    <TableCell>
+                    {/* <TableCell>
                       <div className="flex items-center gap-2">
                         <Button size="sm" variant="outline">
                           View
@@ -291,7 +291,7 @@ export default function Attendance() {
                           Edit
                         </Button>
                       </div>
-                    </TableCell>
+                    </TableCell> */}
                   </TableRow>
                 ))
               ) : (

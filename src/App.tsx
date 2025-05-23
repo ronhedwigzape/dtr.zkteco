@@ -5,9 +5,12 @@ import Employees from "./pages/Employees";
 import Adjustments from "./pages/Adjustments";
 import Attendance from "./pages/Attendance";
 import NavigationBar from "./components/navigation/navigation-bar";
+import { useAttendanceSocket } from "./hooks/useAttendanceSocket";
 
 export default function App() {
-
+    // Initialize the attendance socket connection
+    useAttendanceSocket();
+    
     return (
         <>
             <NavigationBar />
