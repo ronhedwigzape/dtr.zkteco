@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev:server": "dotenv -e .env.development -- node server/index.js",
+    "dev:server": "dotenv -e .env.development -- node ../server/index.js",
     "dev:client": "vite",
     "dev": "npm-run-all --parallel dev:server dev:client",
     "build": "tsc -b && vite build",

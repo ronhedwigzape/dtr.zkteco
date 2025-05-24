@@ -9,18 +9,18 @@ import mysql from 'mysql2/promise';
 
 // Environment variables (see README)
 const {
-  REDIS_URL     = 'redis://127.0.0.1:6379',
-  REDIS_CHANNEL = 'attendance:updates',
-  DEVICE_IP     = '10.10.80.8',
-  DEVICE_PORT   = '4370',
-  SEND_TIMEOUT  = '20000',
-  RECV_TIMEOUT  = '20000',
-  SERVER_PORT   = '8090',
-
-  DB_HOST       = '127.0.0.1',
-  DB_USER       = 'root',
-  DB_PASS       = '',
-  DB_NAME       = 'attendance',
+  REDIS_URL     ,
+  REDIS_CHANNEL ,
+  DEVICE_IP     ,
+  DEVICE_PORT   ,
+  SEND_TIMEOUT  ,
+  RECV_TIMEOUT  ,
+  SERVER_PORT   ,
+  DB_HOST       ,
+  DB_USER       ,
+  DB_PASS       ,
+  DB_NAME       ,
+  DB_PORT
 } = process.env;
 
 // parse ints
@@ -29,9 +29,9 @@ const SEND_TIMEOUT_MS  = parseInt(SEND_TIMEOUT, 10);
 const RECV_TIMEOUT_MS  = parseInt(RECV_TIMEOUT, 10);
 const SERVER_PORT_NUM  = parseInt(SERVER_PORT, 10);
 
-// MySQL pool for persistence
 const db = await mysql.createPool({
-  host:     DB_HOST,
+  host:     (DB_HOST === 'localhost' || DB_HOST === '::1') ? '127.0.0.1' : DB_HOST,
+  port:     Number(DB_PORT) || 3306,
   user:     DB_USER,
   password: DB_PASS,
   database: DB_NAME,
